@@ -106,6 +106,10 @@ extern char *dri_driver_path;
 extern char registry_path[PATH_MAX];
 #endif
 
+#ifdef LIBVNCSERVER_HAVE_LIBOPENH264
+extern char h264conf_path[PATH_MAX];
+#endif
+
 rfbFBInfo rfbFB;
 DevPrivateKeyRec rfbGCKey;
 
@@ -659,7 +663,12 @@ int ddxProcessArgument(int argc, char *argv[], int i)
     return 2;
   }
 #endif
-
+#ifdef LIBVNCSERVER_HAVE_LIBOPENH264
+  if (strcasecmp(argv[i], "-h264conf") == 0) {
+    snprintf(h264conf_path, PATH_MAX, "%s", argv[i + 1]);
+    return 2;
+  }
+#endif
   if (strcasecmp(argv[i], "-verbose") == 0) {
     LogSetParameter(XLOG_VERBOSITY, X_DEBUG);
     return 1;
@@ -1740,6 +1749,7 @@ void ddxUseMsg(void)
 
   ErrorF("\nTurboVNC miscellaneous options\n");
   ErrorF("==============================\n");
+  ErrorF("-h264conf              specify full path/name to h264 configuration file\n\n");
 #ifndef TURBOVNC_STATIC_XORG_PATHS
   ErrorF("-registrydir dir       specify directory containing protocol.txt\n");
 #endif

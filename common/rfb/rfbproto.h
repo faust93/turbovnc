@@ -485,6 +485,8 @@ typedef struct _rfbInteractionCapsMsg {
 #define rfbEncodingZRLE     16
 #define rfbEncodingZYWRLE   17
 
+#define rfbEncodingH264     50
+
 /* signatures for basic encoding types */
 #define sig_rfbEncodingRaw       "RAW_____"
 #define sig_rfbEncodingCopyRect  "COPYRECT"
@@ -496,6 +498,8 @@ typedef struct _rfbInteractionCapsMsg {
 #define sig_rfbEncodingZlibHex   "ZLIBHEX_"
 #define sig_rfbEncodingZRLE      "ZRLE____"
 #define sig_rfbEncodingZYWRLE    "ZYWRLE__"
+
+#define sig_rfbEncodingH264      "H264____"
 
 /*
  * Special encoding numbers:

@@ -723,6 +723,9 @@ extern Bool rfbDCInitialize(ScreenPtr, miPointerScreenFuncPtr);
 
 /* draw.c */
 
+#ifdef LIBVNCSERVER_HAVE_LIBOPENH264
+extern void rfbScheduleDeferredUpdate(rfbClientPtr cl);
+#endif
 extern int rfbDeferUpdateTime;
 
 extern void ClipToScreen(ScreenPtr pScreen, RegionPtr pRegion);
@@ -855,7 +858,7 @@ void rfbRemoveScreens(struct xorg_list *list);
  * means 8K minimum.
  */
 
-#define UPDATE_BUF_SIZE 30000
+#define UPDATE_BUF_SIZE 5000000
 extern char updateBuf[UPDATE_BUF_SIZE];
 extern int ublen;
 
@@ -913,6 +916,11 @@ extern Bool rfbSendSetColourMapEntries(rfbClientPtr cl, int firstColour,
 extern void rfbSendBell(void);
 extern void rfbSendServerCutText(char *str, int len);
 
+#ifdef LIBVNCSERVER_HAVE_LIBOPENH264
+extern void rfbH264Cleanup(rfbClientPtr cl);
+extern void rfbH264ContextReset(rfbClientPtr cl);
+extern Bool rfbSendFrameEncodingOpenH264(rfbClientPtr cl);
+#endif
 
 #if USETLS
 

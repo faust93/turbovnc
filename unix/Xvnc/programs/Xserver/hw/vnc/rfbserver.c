@@ -520,6 +520,11 @@ void rfbClientConnectionGone(rfbClientPtr cl)
   if (cl->next)
     cl->next->prev = cl->prev;
 
+#ifdef LIBVNCSERVER_HAVE_LIBOPENH264
+  if(cl->preferredEncoding == rfbEncodingH264)
+    rfbH264Cleanup(cl);
+#endif
+
   TimerFree(cl->alrTimer);
   TimerFree(cl->deferredUpdateTimer);
   TimerFree(cl->congestionTimer);
@@ -837,6 +842,9 @@ void rfbSendInteractionCaps(rfbClientPtr cl)
   SetCapInfo(&enc_list[i++],  rfbEncodingZRLE,           rfbTridiaVncVendor);
   SetCapInfo(&enc_list[i++],  rfbEncodingZYWRLE,         rfbTridiaVncVendor);
   SetCapInfo(&enc_list[i++],  rfbEncodingTight,          rfbTightVncVendor);
+#ifdef LIBVNCSERVER_HAVE_LIBOPENH264
+  SetCapInfo(&enc_list[i++],  rfbEncodingH264,           rfbTightVncVendor);
+#endif
   SetCapInfo(&enc_list[i++],  rfbEncodingCompressLevel0, rfbTightVncVendor);
   SetCapInfo(&enc_list[i++],  rfbEncodingQualityLevel0,  rfbTightVncVendor);
   SetCapInfo(&enc_list[i++],  rfbEncodingFineQualityLevel0, rfbTurboVncVendor);
@@ -1004,6 +1012,14 @@ static void rfbProcessClientNormalMessage(rfbClientPtr cl)
               rfbLog("Using tight encoding for client %s\n", cl->host);
             }
             break;
+#ifdef LIBVNCSERVER_HAVE_LIBOPENH264
+          case rfbEncodingH264:
+            if (cl->preferredEncoding == -1) {
+              cl->preferredEncoding = enc;
+              rfbLog("Using H264 encoding for client %s\n", cl->host);
+            }
+            break;
+#endif
           case rfbEncodingXCursor:
             if (!cl->enableCursorShapeUpdates) {
               rfbLog("Enabling X-style cursor updates for client %s\n",
@@ -2070,6 +2086,21 @@ Bool rfbSendFramebufferUpdate(rfbClientPtr cl)
     rfbUncorkSock(cl->sock);
     return TRUE;
   }
+
+#ifdef LIBVNCSERVER_HAVE_LIBOPENH264
+  if(cl->preferredEncoding == rfbEncodingH264) {
+    if(!rfbSendFrameEncodingOpenH264(cl)) {
+        return FALSE;
+    }
+    if (!rfbSendRTTPing(cl))
+      goto abort;
+    cl->rfbFramebufferUpdateMessagesSent++;
+
+    rfbUncorkSock(cl->sock);
+    rfbUpdatePosition(cl, cl->sockOffset);
+    return TRUE;
+  }
+#endif
 
   /*
    * If this client understands cursor shape updates and owns the pointer or is

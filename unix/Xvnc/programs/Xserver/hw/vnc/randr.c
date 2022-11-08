@@ -298,6 +298,13 @@ static int vncScreenSetSize(ScreenPtr pScreen, CARD16 width, CARD16 height,
            height);
   }
 
+#ifdef LIBVNCSERVER_HAVE_LIBOPENH264
+    if(width % 2 != 0) width--;
+    if(height % 2 != 0) height--;
+    if(mmWidth % 2 != 0) mmWidth--;
+    if(mmHeight % 2 != 0) mmHeight--;
+#endif
+
   newFB.width = width;
   newFB.height = height;
   newFB.paddedWidthInBytes = PixmapBytePad(newFB.width, newFB.depth);

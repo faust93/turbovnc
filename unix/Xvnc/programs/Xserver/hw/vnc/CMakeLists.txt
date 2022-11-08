@@ -1,3 +1,22 @@
+set(DEFAULT_TVNC_H264 1)
+option(TVNC_H264 "Include OpenH264 support in the TurboVNC Server"
+	${DEFAULT_TVNC_H264})
+
+if(TVNC_H264)
+  set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/h264/")
+  find_package(OPENH264)
+endif()
+
+if(OPENH264_FOUND)
+  set(LIBVNCSERVER_HAVE_LIBOPENH264 1)
+  add_definitions(-DLIBVNCSERVER_HAVE_LIBOPENH264)
+  include_directories(${OPENH264_INCLUDE_DIR})
+  set(OPENH264_C
+		h264/common.c
+		h264/openh264.c
+    )
+endif()
+
 set(DEFAULT_TVNC_USEPAM 1)
 option(TVNC_USEPAM "Include PAM authentication support in the TurboVNC Server"
 	${DEFAULT_TVNC_USEPAM})
@@ -98,7 +117,12 @@ add_library(vnc STATIC
 	zrlepalettehelper.c
 	${PAMSRC}
 	${NVCTRLSRC}
-	${RFBSSLSRC})
+	${RFBSSLSRC}
+	${OPENH264_C})
+
+if(OPENH264_FOUND)
+	target_link_libraries(vnc ${OPENH264_LIBRARIES})
+endif()
 
 if(TVNC_USETLS STREQUAL "openssl" AND NOT TVNC_DLOPENSSL)
 	target_link_libraries(vnc ${OPENSSL_LIBRARIES})
