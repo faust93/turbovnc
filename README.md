@@ -1,7 +1,6 @@
 # Experimental H264 codec support for TurboVNC Xvnc
 
 Inspired by martin19's work on libvncserver
-
 https://github.com/martin19/libvncserver
 
 ## Details
@@ -18,7 +17,7 @@ Cisco OpenH264 is curently used for encoding but perhaps in the future it will b
 Install all the dependencies (openh264 package etc.. see your distro repos) then:
 
 ```sh
-$ git clone https://github.com/TurboVNC/turbovnc.git
+$ git clone https://github.com/faust93/turbovnc.git
 $ cd turbovnc
 $ mkdir build && cd build
 $ cmake ..
