@@ -202,7 +202,7 @@ error:
     return result;
 }
 
-Bool rfbSendFrameEncodingOpenH264(rfbClientPtr cl) {
+Bool rfbSendFrameEncodingH264(rfbClientPtr cl) {
     Bool result = TRUE;
     int rv;
     int frameSize;

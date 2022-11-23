@@ -520,11 +520,6 @@ void rfbClientConnectionGone(rfbClientPtr cl)
   if (cl->next)
     cl->next->prev = cl->prev;
 
-#ifdef LIBVNCSERVER_HAVE_LIBOPENH264
-  if(cl->preferredEncoding == rfbEncodingH264)
-    rfbH264Cleanup(cl);
-#endif
-
   TimerFree(cl->alrTimer);
   TimerFree(cl->deferredUpdateTimer);
   TimerFree(cl->congestionTimer);
@@ -592,6 +587,11 @@ void rfbClientConnectionGone(rfbClientPtr cl)
 
   if (rfbClientHead == NULL && rfbIdleTimeout > 0)
     IdleTimerSet();
+
+#if defined(LIBVNCSERVER_HAVE_LIBOPENH264) || defined(LIBVNCSERVER_HAVE_FFH264)
+  if(cl->preferredEncoding == rfbEncodingH264)
+    rfbH264Cleanup(cl);
+#endif
 }
 
 
@@ -842,7 +842,7 @@ void rfbSendInteractionCaps(rfbClientPtr cl)
   SetCapInfo(&enc_list[i++],  rfbEncodingZRLE,           rfbTridiaVncVendor);
   SetCapInfo(&enc_list[i++],  rfbEncodingZYWRLE,         rfbTridiaVncVendor);
   SetCapInfo(&enc_list[i++],  rfbEncodingTight,          rfbTightVncVendor);
-#ifdef LIBVNCSERVER_HAVE_LIBOPENH264
+#if defined(LIBVNCSERVER_HAVE_LIBOPENH264) || defined(LIBVNCSERVER_HAVE_FFH264)
   SetCapInfo(&enc_list[i++],  rfbEncodingH264,           rfbTightVncVendor);
 #endif
   SetCapInfo(&enc_list[i++],  rfbEncodingCompressLevel0, rfbTightVncVendor);
@@ -1012,7 +1012,7 @@ static void rfbProcessClientNormalMessage(rfbClientPtr cl)
               rfbLog("Using tight encoding for client %s\n", cl->host);
             }
             break;
-#ifdef LIBVNCSERVER_HAVE_LIBOPENH264
+#if defined(LIBVNCSERVER_HAVE_LIBOPENH264) || defined(LIBVNCSERVER_HAVE_FFH264)
           case rfbEncodingH264:
             if (cl->preferredEncoding == -1) {
               cl->preferredEncoding = enc;
@@ -1243,6 +1243,9 @@ static void rfbProcessClientNormalMessage(rfbClientPtr cl)
       if (!rfbViewOnly && !cl->viewOnly)
         KeyEvent((KeySym)Swap32IfLE(msg.ke.key), msg.ke.down);
 
+      if (!cl->deferredUpdateScheduled)
+          rfbSendFramebufferUpdate(cl);
+
       return;
 
     case rfbPointerEvent:
@@ -1274,6 +1277,8 @@ static void rfbProcessClientNormalMessage(rfbClientPtr cl)
         PtrAddEvent(msg.pe.buttonMask, cl->cursorX, cl->cursorY, cl);
 
         pointerOwner = cl;
+        if (!cl->deferredUpdateScheduled)
+            rfbSendFramebufferUpdate(cl);
       }
       return;
 
@@ -2087,9 +2092,9 @@ Bool rfbSendFramebufferUpdate(rfbClientPtr cl)
     return TRUE;
   }
 
-#ifdef LIBVNCSERVER_HAVE_LIBOPENH264
+#if defined(LIBVNCSERVER_HAVE_LIBOPENH264) || defined(LIBVNCSERVER_HAVE_FFH264)
   if(cl->preferredEncoding == rfbEncodingH264) {
-    if(!rfbSendFrameEncodingOpenH264(cl)) {
+    if(!rfbSendFrameEncodingH264(cl)) {
         return FALSE;
     }
     if (!rfbSendRTTPing(cl))

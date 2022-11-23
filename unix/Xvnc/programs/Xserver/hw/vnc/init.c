@@ -106,7 +106,7 @@ extern char *dri_driver_path;
 extern char registry_path[PATH_MAX];
 #endif
 
-#ifdef LIBVNCSERVER_HAVE_LIBOPENH264
+#if defined(LIBVNCSERVER_HAVE_LIBOPENH264) || defined(LIBVNCSERVER_HAVE_FFH264)
 extern char h264conf_path[PATH_MAX];
 #endif
 
@@ -663,7 +663,7 @@ int ddxProcessArgument(int argc, char *argv[], int i)
     return 2;
   }
 #endif
-#ifdef LIBVNCSERVER_HAVE_LIBOPENH264
+#if defined(LIBVNCSERVER_HAVE_LIBOPENH264) || defined(LIBVNCSERVER_HAVE_FFH264)
   if (strcasecmp(argv[i], "-h264conf") == 0) {
     snprintf(h264conf_path, PATH_MAX, "%s", argv[i + 1]);
     return 2;

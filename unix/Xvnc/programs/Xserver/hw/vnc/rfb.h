@@ -723,7 +723,7 @@ extern Bool rfbDCInitialize(ScreenPtr, miPointerScreenFuncPtr);
 
 /* draw.c */
 
-#ifdef LIBVNCSERVER_HAVE_LIBOPENH264
+#if defined(LIBVNCSERVER_HAVE_LIBOPENH264) || defined(LIBVNCSERVER_HAVE_FFH264)
 extern void rfbScheduleDeferredUpdate(rfbClientPtr cl);
 #endif
 extern int rfbDeferUpdateTime;
@@ -916,10 +916,10 @@ extern Bool rfbSendSetColourMapEntries(rfbClientPtr cl, int firstColour,
 extern void rfbSendBell(void);
 extern void rfbSendServerCutText(char *str, int len);
 
-#ifdef LIBVNCSERVER_HAVE_LIBOPENH264
+#if defined(LIBVNCSERVER_HAVE_LIBOPENH264) || defined(LIBVNCSERVER_HAVE_FFH264)
 extern void rfbH264Cleanup(rfbClientPtr cl);
 extern void rfbH264ContextReset(rfbClientPtr cl);
-extern Bool rfbSendFrameEncodingOpenH264(rfbClientPtr cl);
+extern Bool rfbSendFrameEncodingH264(rfbClientPtr cl);
 #endif
 
 #if USETLS

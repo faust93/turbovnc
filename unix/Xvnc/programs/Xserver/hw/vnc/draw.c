@@ -159,7 +159,7 @@ static inline Bool is_visible(DrawablePtr drawable)
   }
 
 /* function prototypes */
-#ifdef LIBVNCSERVER_HAVE_LIBOPENH264
+#if defined(LIBVNCSERVER_HAVE_LIBOPENH264) || defined(LIBVNCSERVER_HAVE_FFH264)
 extern void rfbScheduleDeferredUpdate(rfbClientPtr cl);
 #else
 static void rfbScheduleDeferredUpdate(rfbClientPtr cl);
@@ -1876,7 +1876,7 @@ static CARD32 rfbDeferredUpdateCallback(OsTimerPtr timer, CARD32 now,
  * rfbScheduleDeferredUpdate() is called from the SCHEDULE_FB_UPDATE macro
  * to schedule an update.
  */
-#ifdef LIBVNCSERVER_HAVE_LIBOPENH264
+#if defined(LIBVNCSERVER_HAVE_LIBOPENH264) || defined(LIBVNCSERVER_HAVE_FFH264)
 extern void rfbScheduleDeferredUpdate(rfbClientPtr cl)
 #else
 static void rfbScheduleDeferredUpdate(rfbClientPtr cl)

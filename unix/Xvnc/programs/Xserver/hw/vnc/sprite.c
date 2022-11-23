@@ -811,7 +811,7 @@ rfbSpriteSetCursor(DeviceIntPtr pDev, ScreenPtr pScreen,
             /* cursorIsDrawn is guaranteed to be FALSE here, so we definitely
                want to send a screen update to the client, even if that's only
                putting up the cursor */
-#ifdef LIBVNCSERVER_HAVE_LIBOPENH264
+#if defined(LIBVNCSERVER_HAVE_LIBOPENH264) || defined(LIBVNCSERVER_HAVE_FFH264)
             rfbScheduleDeferredUpdate(cl);
 #else
             rfbSendFramebufferUpdate(cl);

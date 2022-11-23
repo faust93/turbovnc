@@ -1,5 +1,7 @@
 #include "common.h"
 
+//#define DEBUG 1
+
 void fillInputBuffer(char *buffer, int i, int frame_width, int frame_height) {
     //generate sample image data
     u_int32_t offset = 0;
@@ -165,14 +167,13 @@ Bool sendOrQueueData(rfbClientPtr cl, u_char* data, int size, int forceFlush) {
 
     if(forceFlush) {
 #ifdef DEBUG
-        rfbLog("flush H264 data %d (payloadSize=%d)\n",cl->ublen,cl->ublen - sz_rfbFramebufferUpdateMsg - sz_rfbFramebufferUpdateRectHeader);
+        rfbLog("flush H264 data %d (payloadSize=%d)\n",ublen,ublen - sz_rfbFramebufferUpdateMsg - sz_rfbFramebufferUpdateRectHeader);
 #endif
         if(!rfbSendUpdateBuf(cl)) {
             rfbLogPerror("H264: could not send.\n");
             result = FALSE;
         }
     }
-
     error:
     return result;
 }

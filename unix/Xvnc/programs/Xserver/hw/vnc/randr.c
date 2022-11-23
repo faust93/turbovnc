@@ -298,7 +298,7 @@ static int vncScreenSetSize(ScreenPtr pScreen, CARD16 width, CARD16 height,
            height);
   }
 
-#ifdef LIBVNCSERVER_HAVE_LIBOPENH264
+#if defined(LIBVNCSERVER_HAVE_LIBOPENH264) || defined(LIBVNCSERVER_HAVE_FFH264)
     if(width % 2 != 0) width--;
     if(height % 2 != 0) height--;
     if(mmWidth % 2 != 0) mmWidth--;

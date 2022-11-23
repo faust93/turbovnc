@@ -1,6 +1,14 @@
-set(DEFAULT_TVNC_H264 1)
-option(TVNC_H264 "Include OpenH264 support in the TurboVNC Server"
+set(DEFAULT_TVNC_H264 OFF)
+option(TVNC_H264 "Include OpenH264 encoding support in the TurboVNC Server"
 	${DEFAULT_TVNC_H264})
+
+set(DEFAULT_TVNC_FFH264 ON)
+option(TVNC_FFH264 "Include FFmpeg H264 encoding support in the TurboVNC Server"
+	${DEFAULT_TVNC_FFH264})
+
+if(TVNC_H264 AND TVNC_FFH264)
+  message(FATAL_ERROR "Can't use both H264 codecs at the same time, select the only one please")
+endif()
 
 if(TVNC_H264)
   set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/h264/")
@@ -15,6 +23,23 @@ if(OPENH264_FOUND)
 		h264/common.c
 		h264/openh264.c
     )
+endif()
+
+if(TVNC_FFH264)
+  set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/h264/")
+  find_package(Ffmpeg)
+endif()
+
+if(AVCODEC_FOUND AND AVUTIL_FOUND AND SWSCALE_FOUND)
+  set(LIBVNCSERVER_HAVE_FFH264 1)
+  add_definitions(-DLIBVNCSERVER_HAVE_FFH264)
+  include_directories(${AVCODEC_INCLUDE_DIRS} ${AVUTIL_INCLUDE_DIRS} ${SWSCALE_INCLUDE_DIRS})
+  set(OPENH264_C
+		h264/common.c
+		h264/ffh264.c
+    )
+else()
+  message(WARNING "FFMPEG can't be found")
 endif()
 
 set(DEFAULT_TVNC_USEPAM 1)
@@ -120,8 +145,12 @@ add_library(vnc STATIC
 	${RFBSSLSRC}
 	${OPENH264_C})
 
-if(OPENH264_FOUND)
+if(LIBVNCSERVER_HAVE_LIBOPENH264)
 	target_link_libraries(vnc ${OPENH264_LIBRARIES})
+endif()
+
+if(LIBVNCSERVER_HAVE_FFH264)
+	target_link_libraries(vnc ${AVCODEC_LIBRARIES} ${AVUTIL_LIBRARIES} ${SWSCALE_LIBRARIES})
 endif()
 
 if(TVNC_USETLS STREQUAL "openssl" AND NOT TVNC_DLOPENSSL)
