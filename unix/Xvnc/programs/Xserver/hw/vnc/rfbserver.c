@@ -513,6 +513,11 @@ void rfbClientConnectionGone(rfbClientPtr cl)
   int i;
   rfbRTTInfo *rttInfo, *tmp;
 
+#if defined(LIBVNCSERVER_HAVE_LIBOPENH264) || defined(LIBVNCSERVER_HAVE_FFH264)
+  if(cl->preferredEncoding == rfbEncodingH264)
+    rfbH264Cleanup(cl);
+#endif
+
   if (cl->prev)
     cl->prev->next = cl->next;
   else
@@ -588,10 +593,6 @@ void rfbClientConnectionGone(rfbClientPtr cl)
   if (rfbClientHead == NULL && rfbIdleTimeout > 0)
     IdleTimerSet();
 
-#if defined(LIBVNCSERVER_HAVE_LIBOPENH264) || defined(LIBVNCSERVER_HAVE_FFH264)
-  if(cl->preferredEncoding == rfbEncodingH264)
-    rfbH264Cleanup(cl);
-#endif
 }
 
 

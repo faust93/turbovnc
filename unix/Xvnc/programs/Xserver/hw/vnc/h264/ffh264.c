@@ -236,6 +236,8 @@ static Bool initH264(rfbClientPtr cl) {
         av_opt_set(av_context->priv_data, "tune", "zerolatency", 0);
         av_opt_set(av_context->priv_data, "threads", prof[0].Threads, 0);
 
+        av_opt_set(av_context->priv_data, "x264opts", "opencl", 0);
+
 //        av_opt_set(av_context->priv_data, "rc-lookahead", "50", 0);
 
         if(strcmp(prof[0].Crf, "-1")) {
@@ -448,12 +450,12 @@ void rfbH264Cleanup(rfbClientPtr cl) {
     rfbLog("H264 cleanup\n");
 #endif
     if (av_context) {
-        avcodec_free_context(&av_context);
         av_frame_free(&frame);
         if(hwAcc) {
             av_frame_free(&hwFrame);
             av_buffer_unref(&hw_device);
         }
+        avcodec_free_context(&av_context);
         av_free(av_context);
         av_context = NULL;
     }
