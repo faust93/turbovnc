@@ -37,6 +37,7 @@ typedef struct {
       char         QpMax[8];
       char         aqMode[8];
       char         aqStrength[8];
+      Bool         OpenCL;
 
       Bool         HwAccel;
       char         VAAPIDev[128];
@@ -49,7 +50,7 @@ typedef struct {
 } H264Profile;
 
 H264Profile prof[] = {{25.0, 1500000, 120, -1, -1, "baseline", "ultrafast", "4", 0,
-                        "-1", "0", "-1", "0", "0", "-1", "0",
+                        "-1", "0", "-1", "0", "0", "-1", "0", 1,
                         0, "/dev/dri/renderD128", "VBR", "7", "vlc", "constrained_baseline", "64", "4.1" }};
 
 #define MAX_LINEB 512
@@ -134,6 +135,9 @@ int H264CfgRead() {
            else if(!strcmp(param, "aqStrength")) {
              strlcpy(prof[0].aqStrength, val, sizeof(prof[0].aqStrength)-1);
              prof[0].aqStrength[strcspn(prof[0].aqStrength, "\r\n")] = 0;
+           }
+           else if(!strcmp(param, "OpenCL")) {
+             prof[0].OpenCL = atoi(val);
            }
            else if(!strcmp(param, "HwAccel")) {
              prof[0].HwAccel = atoi(val);
@@ -236,7 +240,8 @@ static Bool initH264(rfbClientPtr cl) {
         av_opt_set(av_context->priv_data, "tune", "zerolatency", 0);
         av_opt_set(av_context->priv_data, "threads", prof[0].Threads, 0);
 
-        av_opt_set(av_context->priv_data, "x264opts", "opencl", 0);
+        if(prof[0].OpenCL)
+            av_opt_set(av_context->priv_data, "x264opts", "opencl", 0);
 
 //        av_opt_set(av_context->priv_data, "rc-lookahead", "50", 0);
 
