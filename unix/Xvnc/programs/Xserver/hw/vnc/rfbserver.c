@@ -517,7 +517,6 @@ void rfbClientConnectionGone(rfbClientPtr cl)
   if(cl->preferredEncoding == rfbEncodingH264)
     rfbH264Cleanup(cl);
 #endif
-
   if (cl->prev)
     cl->prev->next = cl->next;
   else
@@ -587,6 +586,11 @@ void rfbClientConnectionGone(rfbClientPtr cl)
 
   if (cl->captureFD >= 0)
     close(cl->captureFD);
+
+#if defined(VNC_HAVE_AUDIO)
+  if(cl->enableAudio)
+    rfbAudioClose(cl);
+#endif
 
   free(cl);
 
@@ -789,7 +793,14 @@ static void rfbProcessClientInitMessage(rfbClientPtr cl)
 /* Update these constants on changing capability lists below! */
 #define N_SMSG_CAPS  0
 #define N_CMSG_CAPS  0
+
+#if (defined(LIBVNCSERVER_HAVE_LIBOPENH264) || defined(LIBVNCSERVER_HAVE_FFH264)) && defined(VNC_HAVE_AUDIO)
+#define N_ENC_CAPS  19
+#elif defined(LIBVNCSERVER_HAVE_LIBOPENH264) || defined(LIBVNCSERVER_HAVE_FFH264) || defined(VNC_HAVE_AUDIO)
+#define N_ENC_CAPS  18
+#else
 #define N_ENC_CAPS  17
+#endif
 
 void rfbSendInteractionCaps(rfbClientPtr cl)
 {
@@ -845,6 +856,9 @@ void rfbSendInteractionCaps(rfbClientPtr cl)
   SetCapInfo(&enc_list[i++],  rfbEncodingTight,          rfbTightVncVendor);
 #if defined(LIBVNCSERVER_HAVE_LIBOPENH264) || defined(LIBVNCSERVER_HAVE_FFH264)
   SetCapInfo(&enc_list[i++],  rfbEncodingH264,           rfbTightVncVendor);
+#endif
+#if defined(VNC_HAVE_AUDIO)
+  SetCapInfo(&enc_list[i++],  rfbEncodingAudio,          rfbTightVncVendor);
 #endif
   SetCapInfo(&enc_list[i++],  rfbEncodingCompressLevel0, rfbTightVncVendor);
   SetCapInfo(&enc_list[i++],  rfbEncodingQualityLevel0,  rfbTightVncVendor);
@@ -955,7 +969,10 @@ static void rfbProcessClientNormalMessage(rfbClientPtr cl)
       cl->tightSubsampLevel = TIGHT_DEFAULT_SUBSAMP;
       cl->tightQualityLevel = -1;
       cl->imageQualityLevel = -1;
-
+#if defined(VNC_HAVE_AUDIO)
+      cl->enableAudio = FALSE;
+      cl->streamState = -1;
+#endif
       for (i = 0; i < msg.se.nEncodings; i++) {
         READ((char *)&enc, 4)
         enc = Swap32IfLE(enc);
@@ -1018,6 +1035,15 @@ static void rfbProcessClientNormalMessage(rfbClientPtr cl)
             if (cl->preferredEncoding == -1) {
               cl->preferredEncoding = enc;
               rfbLog("Using H264 encoding for client %s\n", cl->host);
+            }
+            break;
+#endif
+#if defined(VNC_HAVE_AUDIO)
+          case rfbEncodingAudio:
+            if (!cl->enableAudio) {
+               cl->enableAudio = TRUE;
+               cl->streamState = 1;
+               rfbLog("Using Audio extension for client %s\n", cl->host);
             }
             break;
 #endif
@@ -1183,7 +1209,11 @@ static void rfbProcessClientNormalMessage(rfbClientPtr cl)
           return;
         }
       }
-
+#if defined(VNC_HAVE_AUDIO)
+      /* Notify we have audio support */
+      if (cl->enableAudio)
+          rfbAudioSendAck(cl);
+#endif
       return;
     }  /* rfbSetEncodings */
 
@@ -2017,6 +2047,62 @@ static void rfbProcessClientNormalMessage(rfbClientPtr cl)
       return;
     }  /* rfbGIIClient */
 
+#if defined(VNC_HAVE_AUDIO)
+    case rfbQEMUClient:
+    {
+      CARD8 flags;
+      CARD32 freq;
+
+      READ(((char *)&msg) + 1, sz_rfbQEMUClientMsg - 1);
+
+      switch(msg.qac.subType) {
+        case rfbQEMUClientAudio:
+            switch(Swap16(msg.qac.operation)) {
+                case rfbQEMUClientAudioEnable:
+                    rfbAudioInit(cl);
+                    break;
+                case rfbQEMUClientAudioDisable:
+                    rfbAudioClose(cl);
+                    break;
+                case rfbQEMUClientAudioSetFormat:
+                    READ((char *)&flags, sizeof(CARD8));
+                    switch(flags) {
+                        case 0:
+                            cl->sampleFormat = flags;
+                            break;
+                        case 1:
+                            cl->sampleFormat = flags;
+                            break;
+                        case 2:
+                            cl->sampleFormat = flags;
+                            break;
+                        case 3:
+                            cl->sampleFormat = flags;
+                            break;
+                        case 4:
+                            cl->sampleFormat = flags;
+                            break;
+                        case 5:
+                            cl->sampleFormat = flags;
+                            break;
+                        default:
+                            rfbLog("Invalid audio format %d\n", flags);
+                            break;
+                    }
+                    READ((char *)&flags, sizeof(CARD8));
+                    if(flags < 1 || flags > 2) {
+                        rfbLog("Invalid audio channels count: %d\n", flags);
+                        break;
+                    }
+                    cl->numberOfChannels = flags;
+                    READ((char *)&freq, sizeof(CARD32));
+                    cl->samplingFreq = Swap32(freq);
+                    break;
+            }
+      }
+      return;
+    }
+#endif
     default:
 
       rfbLog("rfbProcessClientNormalMessage: unknown message type %d\n",
@@ -2092,7 +2178,6 @@ Bool rfbSendFramebufferUpdate(rfbClientPtr cl)
     rfbUncorkSock(cl->sock);
     return TRUE;
   }
-
 #if defined(LIBVNCSERVER_HAVE_LIBOPENH264) || defined(LIBVNCSERVER_HAVE_FFH264)
   if(cl->preferredEncoding == rfbEncodingH264) {
     if(!rfbSendFrameEncodingH264(cl)) {

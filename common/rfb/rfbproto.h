@@ -415,12 +415,19 @@ typedef struct _rfbInteractionCapsMsg {
 
 #define rfbGIIServer 253
 
+#define rfbQEMUServer 255
+#define rfbQEMUServerAudio 1
+#define rfbQEMUServerAudioEnd 0
+#define rfbQEMUServerAudioBegin 1
+#define rfbQEMUServerAudioData 2
+
 /* signatures for non-standard messages */
 #define sig_rfbFileListData "FTS_LSDT"
 #define sig_rfbFileDownloadData "FTS_DNDT"
 #define sig_rfbFileUploadCancel "FTS_UPCN"
 #define sig_rfbFileDownloadFailed "FTS_DNFL"
 #define sig_rfbGIIServer "GII_SERV"
+#define sig_rfbQEMUServer "QEM_SERV"
 
 
 /*-----------------------------------------------------------------------------
@@ -450,6 +457,12 @@ typedef struct _rfbInteractionCapsMsg {
 
 #define rfbGIIClient 253
 
+#define rfbQEMUClient 255
+#define rfbQEMUClientAudio 1
+#define rfbQEMUClientAudioEnable 0
+#define rfbQEMUClientAudioDisable 1
+#define rfbQEMUClientAudioSetFormat 2
+
 /* signatures for non-standard messages */
 #define sig_rfbFileListRequest "FTC_LSRQ"
 #define sig_rfbFileDownloadRequest "FTC_DNRQ"
@@ -459,6 +472,7 @@ typedef struct _rfbInteractionCapsMsg {
 #define sig_rfbFileUploadFailed "FTC_UPFL"
 #define sig_rfbFileCreateDirRequest "FTC_FCDR"
 #define sig_rfbGIIClient "GII_CLNT"
+#define sig_rfbQEMUClient "QEM_CLNT"
 
 
 /*-----------------------------------------------------------------------------
@@ -572,6 +586,9 @@ typedef struct _rfbInteractionCapsMsg {
 #define rfbEncodingQualityLevel8        0xFFFFFFE8
 #define rfbEncodingQualityLevel9        0xFFFFFFE9
 
+#define rfbEncodingAudio                0XFFFFFEFD // -259
+#define rfbEncodingExtKeyEvent          0XFFFFFEFE
+
 /* signatures for "fake" encoding types */
 #define sig_rfbEncodingCompressLevel0    "COMPRLVL"
 #define sig_rfbEncodingXCursor           "X11CURSR"
@@ -583,6 +600,9 @@ typedef struct _rfbInteractionCapsMsg {
 #define sig_rfbEncodingSubsamp1X         "SSAMPLVL"
 #define sig_rfbEncodingQualityLevel0     "JPEGQLVL"
 #define sig_rfbEncodingGII               "GII_____"
+
+#define sig_rfbEncodingExtKeyEvent       "EXTKEYEV"
+#define sig_rfbEncodingAudio             "QEMUAUDI"
 
 
 /*****************************************************************************
@@ -1650,6 +1670,13 @@ typedef struct _rfbGIIEventMsg {
 
 #define sz_rfbGIIEventMsg 4
 
+typedef struct _rfbQEMUClientMsg {
+    CARD8 type;
+    CARD8 subType;
+    CARD16 operation;
+} rfbQEMUClientMsg;
+
+#define sz_rfbQEMUClientMsg 4
 
 /*-----------------------------------------------------------------------------
  * Union of all client->server messages.
@@ -1678,4 +1705,5 @@ typedef union _rfbClientToServerMsg {
     rfbGIIDeviceCreateMsg giidc;
     rfbGIIDeviceDestroyMsg giidd;
     rfbGIIEventMsg giie;
+    rfbQEMUClientMsg qac;
 } rfbClientToServerMsg;

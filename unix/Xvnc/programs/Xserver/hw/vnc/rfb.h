@@ -426,7 +426,15 @@ typedef struct rfbClientRec {
   Bool useRichCursorEncoding;       /* rfbEncodingRichCursor is preferred */
   Bool cursorWasChanged;            /* cursor shape update should be sent */
   Bool cursorWasMoved;              /* cursor position update should be sent */
-
+#if defined(VNC_HAVE_AUDIO)
+  Bool enableAudio;                 /* audio processing thread is up and running */
+  Bool streamState;                 /* either active (0) or not (1) */
+  Bool audioUpdateScheduled;
+  OsTimerPtr audioUpdateTimer;
+  uint32_t audioBufSize;
+  uint32_t samplingFreq;
+  uint8_t  sampleFormat, numberOfChannels;
+#endif
   int cursorX, cursorY;             /* client's cursor position */
 
   Bool firstUpdate, inALR;
@@ -920,6 +928,13 @@ extern void rfbSendServerCutText(char *str, int len);
 extern void rfbH264Cleanup(rfbClientPtr cl);
 extern void rfbH264ContextReset(rfbClientPtr cl);
 extern Bool rfbSendFrameEncodingH264(rfbClientPtr cl);
+#endif
+
+#if defined(VNC_HAVE_AUDIO)
+extern Bool rfbAudioSendData(rfbClientPtr cl);
+extern Bool rfbAudioSendAck(rfbClientPtr cl);
+extern Bool rfbAudioInit(rfbClientPtr cl);
+extern void rfbAudioClose(rfbClientPtr cl);
 #endif
 
 #if USETLS

@@ -6,6 +6,18 @@ set(DEFAULT_TVNC_FFH264 ON)
 option(TVNC_FFH264 "Include FFmpeg H264 encoding support in the TurboVNC Server"
 	${DEFAULT_TVNC_FFH264})
 
+set(DEFAULT_VNC_AUDIO ON)
+option(TVNC_AUDIO "Include audio support in the TurboVNC Server"
+	${DEFAULT_VNC_AUDIO})
+
+if(TVNC_AUDIO)
+  set(VNC_HAVE_AUDIO 1)
+  add_definitions(-DVNC_HAVE_AUDIO)
+  set(VNC_AUDIO_C
+	audio.c
+    )
+endif()
+
 if(TVNC_H264 AND TVNC_FFH264)
   message(FATAL_ERROR "Can't use both H264 codecs at the same time, select the only one please")
 endif()
@@ -143,7 +155,8 @@ add_library(vnc STATIC
 	${PAMSRC}
 	${NVCTRLSRC}
 	${RFBSSLSRC}
-	${OPENH264_C})
+	${OPENH264_C}
+	${VNC_AUDIO_C})
 
 if(LIBVNCSERVER_HAVE_LIBOPENH264)
 	target_link_libraries(vnc ${OPENH264_LIBRARIES})
