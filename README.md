@@ -41,6 +41,38 @@ Then connect to the server using TigerVNC viewer
 
 H264 parameters can be tuned according to your needs/preferences, see `h264.cfg` file
 
+## Audio support
+
+Proof of concept QEMU audio server side protocol implementation
+
+### How to use
+
+#### Server side
+
+**Requirements:**
+
+1. PulseAudio
+2. pulseaudio-module-xrdp https://github.com/neutrinolabs/pulseaudio-module-xrdp
+
+I decided to re-use existing Pulseaudio sink from the XRDP project
+
+You have to build it yourself or install prebuilt package if your distro has one
+
+1. Load XRDP sink inside already running Xvnc session:
+
+`$ pacmd load-module module-xrdp-sink sink_name=XVNC rate=22050 format=s16le channels=2 xrdp_socket_path=/tmp/.xvnc`
+
+2. Set `xrdp sink` as a default **Output device** using `pavucontrol` or some another tool used to control PulseAudio
+
+#### Client side
+
+In theory any VNC client with QEMU audio support should work but there are not many of them around so I personally use TigerVNC client patched for QEMU Audio support:
+
+https://github.com/faust93/tigervnc
+
+**You have to build it from sources yourself**. Nothing more has to be done on the client side, just connect to the server and try to produce some sound
+
+Default audio settings are set to 22050 16 bit 2 channels
 
 ## Cudos
 
