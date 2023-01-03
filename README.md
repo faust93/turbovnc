@@ -74,6 +74,8 @@ https://github.com/faust93/tigervnc
 
 Default audio settings are set to 22050 16 bit 2 channels
 
+[![Demo video](https://img.youtube.com/vi/4m_iZnIf9EE/default.jpg)](https://youtu.be/4m_iZnIf9EE)
+
 ## Cudos
 
 @martin19 for his work on libvncserver
