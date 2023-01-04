@@ -318,7 +318,6 @@ Bool rfbAudioInit(rfbClientPtr cl)
 
     local.sun_family = AF_UNIX;
     strcpy(local.sun_path, socket_path);
-    unlink(local.sun_path);
 
     len = strlen(local.sun_path) + sizeof(local.sun_family);
     if(bind(a_sockfd, (struct sockaddr *)&local, len) == -1)
