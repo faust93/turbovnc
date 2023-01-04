@@ -309,6 +309,8 @@ Bool rfbAudioInit(rfbClientPtr cl)
 
     mkdir(PA_SOCK_FOLDER, 0);
     chmod(PA_SOCK_FOLDER, 0777);
+    remove(socket_path);
+
     if((a_sockfd = socket(AF_UNIX, SOCK_STREAM, 0)) == -1)
     {
         rfbLog("%s: error creating audio socket %s\n", __FUNCTION__, PA_SOCK_PATH);
