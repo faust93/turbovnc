@@ -458,7 +458,6 @@ void KeyEvent(CARD32 keysym, Bool down)
 
 static int cursorPosX = -1, cursorPosY = -1;
 
-
 void PtrAddEvent(int buttonMask, int x, int y, rfbClientPtr cl)
 {
   int i;
@@ -469,16 +468,27 @@ void PtrAddEvent(int buttonMask, int x, int y, rfbClientPtr cl)
   if (!ptrDevice)
     FatalError("Pointer device not initialized");
 
-  if (cursorPosX != x || cursorPosY != y) {
-    valuators[0] = x;
-    valuators[1] = y;
-    valuator_mask_set_range(&mask, 0, 2, valuators);
-    QueuePointerEvents(ptrDevice, MotionNotify, 0, POINTER_ABSOLUTE, &mask);
-
-    cursorPosX = x;
-    cursorPosY = y;
+  /* in absolute pointer mode X & Y are always less than compared value */
+  if (x < 0x7D00 && y < 0x7D00) {
+     if (cursorPosX != x || cursorPosY != y) {
+        valuators[0] = x;
+        valuators[1] = y;
+        valuator_mask_set_range(&mask, 0, 2, valuators);
+        QueuePointerEvents(ptrDevice, MotionNotify, 0, POINTER_ABSOLUTE, &mask);
+        cursorPosX = x;
+        cursorPosY = y;
+    }
+  /* in relative pointer mode client should always add X & Y offsets to 0x7FFF base value */
+  } else if (x > 0x7D00 && y > 0x7D00) {
+        int relx = x - 0x7FFF;
+        int rely = y - 0x7FFF;
+        valuators[0] = relx;
+        valuators[1] = rely;
+        valuator_mask_set_range(&mask, 0, 2, valuators);
+        QueuePointerEvents(ptrDevice, MotionNotify, 0, POINTER_RELATIVE, &mask);
+        cursorPosX += relx;
+        cursorPosY += rely;
   }
-
   for (i = 0; i < 5; i++) {
     if ((buttonMask ^ oldButtonMask) & (1 << i)) {
       if (buttonMask & (1 << i)) {
