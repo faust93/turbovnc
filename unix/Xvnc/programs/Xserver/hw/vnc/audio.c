@@ -120,7 +120,7 @@ Bool rfbAudioSendData(rfbClientPtr cl)
         t_msg[6] = (io_bytes >> 8) & 0xFF;
         t_msg[7] = io_bytes & 0xFF;
 
-        if(!cl->streamState) {
+        if(!cl->streamState && cl->enableAudio) {
             sendOrQueueData(cl, t_msg, 8, 0);
             sendOrQueueData(cl, audioBufPtr + bufSubmittedHead, io_bytes, 1);
         }
@@ -292,6 +292,7 @@ Bool rfbAudioInit(rfbClientPtr cl)
     while (cl->audioBufSize < buf_estim_size)
         cl->audioBufSize <<= 1;
 
+    cl->enableAudio = TRUE;
     scheduleAudioUpdate(cl);
 
     if(run_state) {
@@ -354,6 +355,7 @@ Bool rfbAudioInit(rfbClientPtr cl)
 void rfbAudioClose(rfbClientPtr cl)
 {
     cl->audioUpdateScheduled = FALSE;
+    cl->enableAudio = FALSE;
     if(tid_audio_client)
       pthread_cancel(tid_audio_client);
     rfbLog("Close audio socket\n");
