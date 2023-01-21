@@ -6,6 +6,7 @@
 #include <sys/un.h>
 #include <errno.h>
 #include <sys/stat.h>
+#include <opus/opus.h>
 
 #include "rfb.h"
 
@@ -33,9 +34,69 @@ size_t         bufUnsubmittedHead = 0;
 pthread_t      tid_audio_srv = 0;
 pthread_t      tid_audio_client = 0;
 
+OpusEncoder *opus_encoder = NULL;
+
+uint8_t bitsPerSample[] = {8, 8, 16, 16, 32, 32};
 
 static void scheduleAudioUpdate(rfbClientPtr cl);
 void AudioNotifyClient(rfbClientPtr cl, int cmd);
+
+/*
+   2880 frames * 4 bytes per sample = 11520
+   at 48000 we have
+   2.5 ms   480 120
+   5   ms   960 240
+   10  ms  1920 480
+   20  ms  3840 960
+   40  ms  7680 1920
+   60  ms 11520 2880
+   120 ms 23040 5760 frames
+*/
+#define OPUS_BITRATE OPUS_AUTO
+#define OPUS_FRAMES  480
+#define op_bbuf_size OPUS_FRAMES * 4
+unsigned char opusBufIn[op_bbuf_size];
+unsigned char opusBufOut[op_bbuf_size * 2];
+
+static int opusEncode(char *data, int data_bytes)
+{
+    unsigned char *cdata;
+    int cdata_bytes;
+    int rv;
+    int error;
+    int data_bytes_org;
+
+    if (opus_encoder == NULL) {
+        opus_encoder = opus_encoder_create(48000, 2, OPUS_APPLICATION_AUDIO, &error);
+        if (opus_encoder == 0) {
+            rfbLog("%s: opus_encoder_create failed: %s\n",__FUNCTION__, opus_strerror(error));
+            return 0;
+        }
+       opus_encoder_ctl(opus_encoder, OPUS_SET_BITRATE(OPUS_BITRATE));
+       opus_encoder_ctl(opus_encoder, OPUS_SET_COMPLEXITY(3));
+       opus_encoder_ctl(opus_encoder, OPUS_SET_PACKET_LOSS_PERC(30));
+    }
+
+    if(data_bytes > op_bbuf_size)
+        data_bytes = op_bbuf_size;
+
+    rv = 0;
+    data_bytes_org = data_bytes;
+    cdata_bytes = op_bbuf_size * 2;
+
+    memcpy(opusBufIn, data, data_bytes);
+
+    if (data_bytes < op_bbuf_size)
+    {
+        memset(opusBufIn + data_bytes, 0, op_bbuf_size - data_bytes);
+        data_bytes = op_bbuf_size;
+    }
+
+    cdata_bytes = opus_encode(opus_encoder, (opus_int16 *)opusBufIn, OPUS_FRAMES, opusBufOut, cdata_bytes);
+    if ((cdata_bytes > 0) && (cdata_bytes < data_bytes_org))
+        rv = cdata_bytes;
+    return rv;
+}
 
 /* Audio buffer delivery timer callback */
 /* Sends audio buffer content and re-schedules timer again */
@@ -100,6 +161,8 @@ Bool rfbAudioSendData(rfbClientPtr cl)
 {
     u_char t_msg[8];
 
+    int opsize;
+
     t_msg[0] = rfbQEMUServer;
     t_msg[1] = rfbQEMUServerAudio;
     t_msg[2] = (rfbQEMUServerAudioData >> 8) & 0xFF;
@@ -107,28 +170,67 @@ Bool rfbAudioSendData(rfbClientPtr cl)
 
     while (bufUnsubmittedSize != 0 && !stream_state) {
         size_t io_bytes = bufUnsubmittedSize;
-        if (io_bytes + bufSubmittedHead > bufTotalSize)
+        if(cl->audioCodec == AUDIO_OPUS) {
+            if(io_bytes > op_bbuf_size)
+                io_bytes = op_bbuf_size;
+            else
+                return TRUE;
+        }
+        if (io_bytes + bufSubmittedHead > bufTotalSize) {
             io_bytes = bufTotalSize - bufSubmittedHead;
+            if(cl->audioCodec == AUDIO_OPUS) {
+                size_t io_tail = op_bbuf_size - io_bytes;
+                memcpy(opusBufOut, audioBufPtr + bufSubmittedHead, io_bytes);
+                bufSubmittedHead = ((bufSubmittedHead + io_bytes) & (bufTotalSize - 1));
+                memcpy(opusBufOut + io_bytes, audioBufPtr + bufSubmittedHead, io_tail);
+                bufSubmittedHead = ((bufSubmittedHead + io_tail) & (bufTotalSize - 1));
+                io_bytes += io_tail;
+                bufUnsubmittedSize -= io_bytes;
+                bufFreeSize += io_bytes;
+                if(!cl->streamState && cl->enableAudio) {
+                    opsize = opusEncode(opusBufOut, io_bytes);
+                    if(opsize > 0) {
+                        t_msg[4] = (opsize >> 24) & 0xFF;
+                        t_msg[5] = (opsize >> 16) & 0xFF;
+                        t_msg[6] = (opsize >> 8) & 0xFF;
+                        t_msg[7] = opsize & 0xFF;
+                        sendOrQueueData(cl, t_msg, 8, 0);
+                        sendOrQueueData(cl, opusBufOut, opsize, 1);
+                    }
+                }
+                break;
+            }
+        }
 #ifdef DEBUG
-        rfbLog("%s: bufFreeSize=%d bufUnsubmittedHead=%d bufUnsubmittedSize=%d bufSubmittedHead=%d\n", __FUNCTION__, bufFreeSize, bufUnsubmittedHead, bufUnsubmittedSize, bufSubmittedHead );
+        rfbLog("%s: bufFreeSize=%d bufUnsubmittedHead=%d bufUnsubmittedSize=%d bufSubmittedHead=%d io_bytes=%d\n", __FUNCTION__, bufFreeSize, bufUnsubmittedHead, bufUnsubmittedSize, bufSubmittedHead, io_bytes );
 #endif
         if(!io_bytes)
             break;
 
-        t_msg[4] = (io_bytes >> 24) & 0xFF;
-        t_msg[5] = (io_bytes >> 16) & 0xFF;
-        t_msg[6] = (io_bytes >> 8) & 0xFF;
-        t_msg[7] = io_bytes & 0xFF;
-
         if(!cl->streamState && cl->enableAudio) {
-            sendOrQueueData(cl, t_msg, 8, 0);
-            sendOrQueueData(cl, audioBufPtr + bufSubmittedHead, io_bytes, 1);
+            if(cl->audioCodec == AUDIO_OPUS) {
+                opsize = opusEncode(audioBufPtr + bufSubmittedHead, io_bytes);
+                if(opsize > 0) {
+                    t_msg[4] = (opsize >> 24) & 0xFF;
+                    t_msg[5] = (opsize >> 16) & 0xFF;
+                    t_msg[6] = (opsize >> 8) & 0xFF;
+                    t_msg[7] = opsize & 0xFF;
+                    sendOrQueueData(cl, t_msg, 8, 0);
+                    sendOrQueueData(cl, opusBufOut, opsize, 1);
+                }
+            } else {
+                t_msg[4] = (io_bytes >> 24) & 0xFF;
+                t_msg[5] = (io_bytes >> 16) & 0xFF;
+                t_msg[6] = (io_bytes >> 8) & 0xFF;
+                t_msg[7] = io_bytes & 0xFF;
+                sendOrQueueData(cl, t_msg, 8, 0);
+                sendOrQueueData(cl, audioBufPtr + bufSubmittedHead, io_bytes, 1);
+            }
         }
         bufSubmittedHead = ((bufSubmittedHead + io_bytes) & (bufTotalSize - 1));
         bufUnsubmittedSize -= io_bytes;
         bufFreeSize += io_bytes;
     }
-
     return TRUE;
 }
 
@@ -283,9 +385,13 @@ Bool rfbAudioInit(rfbClientPtr cl)
 
     vnc_clients++;
 
+    uint8_t  bits_per_sample = bitsPerSample[cl->sampleFormat];
+    rfbLog("%s: client audio codec %s\n", __FUNCTION__, cl->audioCodec ? "OPUS" : "PCM RAW");
     rfbLog("%s: client audio sampling freq %d\n", __FUNCTION__, cl->samplingFreq);
-    rfbLog("%s: client audio sample format %d\n", __FUNCTION__, cl->sampleFormat);
+    rfbLog("%s: client audio sample format %d (%d-bit)\n", __FUNCTION__, cl->sampleFormat, bits_per_sample);
     rfbLog("%s: client audio channels %d\n", __FUNCTION__, cl->numberOfChannels);
+
+    cl->sampleFormat = ((bits_per_sample == 8) ? 0 : 3);
 
     size_t buf_estim_size = (4 * 1000 * cl->samplingFreq) / 1000;
     cl->audioBufSize = 1;

@@ -2066,28 +2066,12 @@ static void rfbProcessClientNormalMessage(rfbClientPtr cl)
                     break;
                 case rfbQEMUClientAudioSetFormat:
                     READ((char *)&flags, sizeof(CARD8));
-                    switch(flags) {
-                        case 0:
-                            cl->sampleFormat = flags;
-                            break;
-                        case 1:
-                            cl->sampleFormat = flags;
-                            break;
-                        case 2:
-                            cl->sampleFormat = flags;
-                            break;
-                        case 3:
-                            cl->sampleFormat = flags;
-                            break;
-                        case 4:
-                            cl->sampleFormat = flags;
-                            break;
-                        case 5:
-                            cl->sampleFormat = flags;
-                            break;
-                        default:
-                            rfbLog("Invalid audio format %d\n", flags);
-                            break;
+                    if(flags >= OPUS_FMT) {
+                        cl->audioCodec = AUDIO_OPUS;
+                        cl->sampleFormat = flags & (OPUS_FMT-1);
+                    } else {
+                        cl->audioCodec = AUDIO_PCM;
+                        cl->sampleFormat = flags;
                     }
                     READ((char *)&flags, sizeof(CARD8));
                     if(flags < 1 || flags > 2) {

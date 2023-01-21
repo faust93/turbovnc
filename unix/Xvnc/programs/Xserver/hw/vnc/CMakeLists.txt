@@ -10,14 +10,6 @@ set(DEFAULT_VNC_AUDIO ON)
 option(TVNC_AUDIO "Include audio support in the TurboVNC Server"
 	${DEFAULT_VNC_AUDIO})
 
-if(TVNC_AUDIO)
-  set(VNC_HAVE_AUDIO 1)
-  add_definitions(-DVNC_HAVE_AUDIO)
-  set(VNC_AUDIO_C
-	audio.c
-    )
-endif()
-
 if(TVNC_H264 AND TVNC_FFH264)
   message(FATAL_ERROR "Can't use both H264 codecs at the same time, select the only one please")
 endif()
@@ -52,6 +44,15 @@ if(AVCODEC_FOUND AND AVUTIL_FOUND AND SWSCALE_FOUND)
     )
 else()
   message(WARNING "FFMPEG can't be found")
+endif()
+
+if(TVNC_AUDIO)
+  find_package(OPUS)
+  set(VNC_HAVE_AUDIO 1)
+  add_definitions(-DVNC_HAVE_AUDIO)
+  set(VNC_AUDIO_C
+	audio.c
+    )
 endif()
 
 set(DEFAULT_TVNC_USEPAM 1)
@@ -159,11 +160,17 @@ add_library(vnc STATIC
 	${VNC_AUDIO_C})
 
 if(LIBVNCSERVER_HAVE_LIBOPENH264)
-	target_link_libraries(vnc ${OPENH264_LIBRARIES})
+        if(VNC_HAVE_AUDIO)
+            set(OPUS ${OPUS_LIBRARIES})
+        endif()
+	target_link_libraries(vnc ${OPENH264_LIBRARIES} ${OPUS})
 endif()
 
 if(LIBVNCSERVER_HAVE_FFH264)
-	target_link_libraries(vnc ${AVCODEC_LIBRARIES} ${AVUTIL_LIBRARIES} ${SWSCALE_LIBRARIES})
+        if(VNC_HAVE_AUDIO)
+            set(OPUS ${OPUS_LIBRARIES})
+        endif()
+        target_link_libraries(vnc ${AVCODEC_LIBRARIES} ${AVUTIL_LIBRARIES} ${SWSCALE_LIBRARIES} ${OPUS})
 endif()
 
 if(TVNC_USETLS STREQUAL "openssl" AND NOT TVNC_DLOPENSSL)

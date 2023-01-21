@@ -428,6 +428,7 @@ typedef struct rfbClientRec {
   Bool cursorWasMoved;              /* cursor position update should be sent */
 #if defined(VNC_HAVE_AUDIO)
   Bool enableAudio;                 /* audio processing thread is up and running */
+  Bool audioCodec;                  /* two of them at the moment: (0) PCM RAW (1) OPUS */
   Bool streamState;                 /* either active (0) or not (1) */
   Bool audioUpdateScheduled;
   OsTimerPtr audioUpdateTimer;
@@ -931,6 +932,9 @@ extern Bool rfbSendFrameEncodingH264(rfbClientPtr cl);
 #endif
 
 #if defined(VNC_HAVE_AUDIO)
+#define OPUS_FMT   8   /* mask over sample format value to distinguish between standard values and opus */
+#define AUDIO_PCM  0
+#define AUDIO_OPUS 1
 extern Bool rfbAudioSendData(rfbClientPtr cl);
 extern Bool rfbAudioSendAck(rfbClientPtr cl);
 extern Bool rfbAudioInit(rfbClientPtr cl);
