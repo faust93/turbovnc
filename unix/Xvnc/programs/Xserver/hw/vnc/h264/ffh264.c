@@ -16,7 +16,7 @@ struct SwsContext *sws_context = NULL;
 int iw,ih;
 
 Bool hwAcc = FALSE;
-
+static int h264_profile = 0;
 char h264conf_path[PATH_MAX];
 
 typedef struct {
@@ -49,7 +49,31 @@ typedef struct {
       char         hLevelIdc[8];
 } H264Profile;
 
-H264Profile prof[] = {{25.0, 1500000, 120, -1, -1, "baseline", "ultrafast", "4", 0,
+H264Profile prof[9] = {{25.0, 1500000, 120, -1, -1, "baseline", "ultrafast", "4", 0,
+                        "-1", "0", "-1", "0", "0", "-1", "0", 1,
+                        0, "/dev/dri/renderD128", "VBR", "7", "vlc", "constrained_baseline", "64", "4.1" },
+                        {25.0, 1500000, 120, -1, -1, "baseline", "ultrafast", "4", 0,
+                        "-1", "0", "-1", "0", "0", "-1", "0", 1,
+                        0, "/dev/dri/renderD128", "VBR", "7", "vlc", "constrained_baseline", "64", "4.1" },
+                        {25.0, 1500000, 120, -1, -1, "baseline", "ultrafast", "4", 0,
+                        "-1", "0", "-1", "0", "0", "-1", "0", 1,
+                        0, "/dev/dri/renderD128", "VBR", "7", "vlc", "constrained_baseline", "64", "4.1" },
+                        {25.0, 1500000, 120, -1, -1, "baseline", "ultrafast", "4", 0,
+                        "-1", "0", "-1", "0", "0", "-1", "0", 1,
+                        0, "/dev/dri/renderD128", "VBR", "7", "vlc", "constrained_baseline", "64", "4.1" },
+                        {25.0, 1500000, 120, -1, -1, "baseline", "ultrafast", "4", 0,
+                        "-1", "0", "-1", "0", "0", "-1", "0", 1,
+                        0, "/dev/dri/renderD128", "VBR", "7", "vlc", "constrained_baseline", "64", "4.1" },
+                        {25.0, 1500000, 120, -1, -1, "baseline", "ultrafast", "4", 0,
+                        "-1", "0", "-1", "0", "0", "-1", "0", 1,
+                        0, "/dev/dri/renderD128", "VBR", "7", "vlc", "constrained_baseline", "64", "4.1" },
+                        {25.0, 1500000, 120, -1, -1, "baseline", "ultrafast", "4", 0,
+                        "-1", "0", "-1", "0", "0", "-1", "0", 1,
+                        0, "/dev/dri/renderD128", "VBR", "7", "vlc", "constrained_baseline", "64", "4.1" },
+                        {25.0, 1500000, 120, -1, -1, "baseline", "ultrafast", "4", 0,
+                        "-1", "0", "-1", "0", "0", "-1", "0", 1,
+                        0, "/dev/dri/renderD128", "VBR", "7", "vlc", "constrained_baseline", "64", "4.1" },
+                        {25.0, 1500000, 120, -1, -1, "baseline", "ultrafast", "4", 0,
                         "-1", "0", "-1", "0", "0", "-1", "0", 1,
                         0, "/dev/dri/renderD128", "VBR", "7", "vlc", "constrained_baseline", "64", "4.1" }};
 
@@ -62,7 +86,7 @@ int H264CfgRead() {
     char line[MAX_LINEB];
     char val[MAX_VALB];
     char param[MAX_ARGB];
-    int v;
+    int v, p_idx = 0;
 
     fn = fopen(h264conf_path,"r");
     if (!fn) {
@@ -72,6 +96,18 @@ int H264CfgRead() {
     while (fgets(line, MAX_LINEB, fn) != NULL) {
       if(line[0] == '#' || line[0] == ';') continue;
       if((strlen(line))>=3) {
+         if(!strncmp(line, "[profile_", 9)){
+          memset(param, 0, MAX_ARGB);
+          memset(val, 0, MAX_VALB);
+          char *i = strchr(line,'_');
+          strncpy(val, i+1, 1);
+          p_idx = atoi(val);
+          if(p_idx < 0 || p_idx > 9) {
+            rfbLog("Invalid h264 profile number, must be in 0-9 range\n");
+            p_idx = 0;
+          }
+          continue;
+         }
          char *i = strchr(line,'=');
          if(i) {
            memset(param, 0, MAX_ARGB);
@@ -79,96 +115,96 @@ int H264CfgRead() {
            strncpy(param, line, (i-line));
            strcpy (val, line+(i-line)+1);
            if(!strcmp(param, "Fps")) {
-             prof[0].Fps = atof(val);
+             prof[p_idx].Fps = atof(val);
            }
            else if(!strcmp(param, "Bitrate")) {
-             prof[0].Bitrate = atoi(val);
+             prof[p_idx].Bitrate = atoi(val);
            }
            else if(!strcmp(param, "GopSize")) {
-             prof[0].GopSize = atoi(val);
+             prof[p_idx].GopSize = atoi(val);
            }
            else if(!strcmp(param, "MaxBFrames")) {
-             prof[0].MaxBFrames = atoi(val);
+             prof[p_idx].MaxBFrames = atoi(val);
            }
            else if(!strcmp(param, "RefFrames")) {
-             prof[0].RefFrames = atoi(val);
+             prof[p_idx].RefFrames = atoi(val);
            }
            else if(!strcmp(param, "Profile")) {
-             strlcpy(prof[0].Profile, val, sizeof(prof[0].Profile)-1);
-             prof[0].Profile[strcspn(prof[0].Profile, "\r\n")] = 0;
+             strlcpy(prof[p_idx].Profile, val, sizeof(prof[p_idx].Profile)-1);
+             prof[p_idx].Profile[strcspn(prof[p_idx].Profile, "\r\n")] = 0;
            }
            else if(!strcmp(param, "Preset")) {
-             strlcpy(prof[0].Preset, val, sizeof(prof[0].Preset)-1);
-             prof[0].Preset[strcspn(prof[0].Preset, "\r\n")] = 0;
+             strlcpy(prof[p_idx].Preset, val, sizeof(prof[p_idx].Preset)-1);
+             prof[p_idx].Preset[strcspn(prof[p_idx].Preset, "\r\n")] = 0;
            }
            else if(!strcmp(param, "Threads")) {
-             strlcpy(prof[0].Threads, val, sizeof(prof[0].Threads)-1);
-             prof[0].Threads[strcspn(prof[0].Threads, "\r\n")] = 0;
+             strlcpy(prof[p_idx].Threads, val, sizeof(prof[p_idx].Threads)-1);
+             prof[p_idx].Threads[strcspn(prof[p_idx].Threads, "\r\n")] = 0;
            }
            else if(!strcmp(param, "GlobalQ")) {
-             prof[0].GlobalQ = atoi(val);
+             prof[p_idx].GlobalQ = atoi(val);
            }
            else if(!strcmp(param, "Crf")) {
-             strlcpy(prof[0].Crf, val, sizeof(prof[0].Crf)-1);
-             prof[0].Crf[strcspn(prof[0].Crf, "\r\n")] = 0;
+             strlcpy(prof[p_idx].Crf, val, sizeof(prof[p_idx].Crf)-1);
+             prof[p_idx].Crf[strcspn(prof[p_idx].Crf, "\r\n")] = 0;
            }
            else if(!strcmp(param, "CrfMax")) {
-             strlcpy(prof[0].CrfMax, val, sizeof(prof[0].CrfMax)-1);
-             prof[0].CrfMax[strcspn(prof[0].CrfMax, "\r\n")] = 0;
+             strlcpy(prof[p_idx].CrfMax, val, sizeof(prof[p_idx].CrfMax)-1);
+             prof[p_idx].CrfMax[strcspn(prof[p_idx].CrfMax, "\r\n")] = 0;
            }
            else if(!strcmp(param, "Qp")) {
-             strlcpy(prof[0].Qp, val, sizeof(prof[0].Qp)-1);
-             prof[0].Qp[strcspn(prof[0].Qp, "\r\n")] = 0;
+             strlcpy(prof[p_idx].Qp, val, sizeof(prof[p_idx].Qp)-1);
+             prof[p_idx].Qp[strcspn(prof[p_idx].Qp, "\r\n")] = 0;
            }
            else if(!strcmp(param, "QpMin")) {
-             strlcpy(prof[0].QpMin, val, sizeof(prof[0].QpMin)-1);
-             prof[0].QpMin[strcspn(prof[0].QpMin, "\r\n")] = 0;
+             strlcpy(prof[p_idx].QpMin, val, sizeof(prof[p_idx].QpMin)-1);
+             prof[p_idx].QpMin[strcspn(prof[p_idx].QpMin, "\r\n")] = 0;
            }
            else if(!strcmp(param, "QpMax")) {
-             strlcpy(prof[0].QpMax, val, sizeof(prof[0].QpMax)-1);
-             prof[0].QpMax[strcspn(prof[0].QpMax, "\r\n")] = 0;
+             strlcpy(prof[p_idx].QpMax, val, sizeof(prof[p_idx].QpMax)-1);
+             prof[p_idx].QpMax[strcspn(prof[p_idx].QpMax, "\r\n")] = 0;
            }
            else if(!strcmp(param, "aqMode")) {
-             strlcpy(prof[0].aqMode, val, sizeof(prof[0].aqMode)-1);
-             prof[0].aqMode[strcspn(prof[0].aqMode, "\r\n")] = 0;
+             strlcpy(prof[p_idx].aqMode, val, sizeof(prof[p_idx].aqMode)-1);
+             prof[p_idx].aqMode[strcspn(prof[p_idx].aqMode, "\r\n")] = 0;
            }
            else if(!strcmp(param, "aqStrength")) {
-             strlcpy(prof[0].aqStrength, val, sizeof(prof[0].aqStrength)-1);
-             prof[0].aqStrength[strcspn(prof[0].aqStrength, "\r\n")] = 0;
+             strlcpy(prof[p_idx].aqStrength, val, sizeof(prof[p_idx].aqStrength)-1);
+             prof[p_idx].aqStrength[strcspn(prof[p_idx].aqStrength, "\r\n")] = 0;
            }
            else if(!strcmp(param, "OpenCL")) {
-             prof[0].OpenCL = atoi(val);
+             prof[p_idx].OpenCL = atoi(val);
            }
            else if(!strcmp(param, "HwAccel")) {
-             prof[0].HwAccel = atoi(val);
+             prof[p_idx].HwAccel = atoi(val);
            }
            else if(!strcmp(param, "VAAPIDev")) {
-             strlcpy(prof[0].VAAPIDev, val, sizeof(prof[0].VAAPIDev)-1);
-             prof[0].VAAPIDev[strcspn(prof[0].VAAPIDev, "\r\n")] = 0;
+             strlcpy(prof[p_idx].VAAPIDev, val, sizeof(prof[p_idx].VAAPIDev)-1);
+             prof[p_idx].VAAPIDev[strcspn(prof[p_idx].VAAPIDev, "\r\n")] = 0;
            }
            else if(!strcmp(param, "hRcMode")) {
-             strlcpy(prof[0].hRcMode, val, sizeof(prof[0].hRcMode)-1);
-             prof[0].hRcMode[strcspn(prof[0].hRcMode, "\r\n")] = 0;
+             strlcpy(prof[p_idx].hRcMode, val, sizeof(prof[p_idx].hRcMode)-1);
+             prof[p_idx].hRcMode[strcspn(prof[p_idx].hRcMode, "\r\n")] = 0;
            }
            else if(!strcmp(param, "hQuality")) {
-             strlcpy(prof[0].hQuality, val, sizeof(prof[0].hQuality)-1);
-             prof[0].hQuality[strcspn(prof[0].hQuality, "\r\n")] = 0;
+             strlcpy(prof[p_idx].hQuality, val, sizeof(prof[p_idx].hQuality)-1);
+             prof[p_idx].hQuality[strcspn(prof[p_idx].hQuality, "\r\n")] = 0;
            }
            else if(!strcmp(param, "hCoder")) {
-             strlcpy(prof[0].hCoder, val, sizeof(prof[0].hCoder)-1);
-             prof[0].hCoder[strcspn(prof[0].hCoder, "\r\n")] = 0;
+             strlcpy(prof[p_idx].hCoder, val, sizeof(prof[p_idx].hCoder)-1);
+             prof[p_idx].hCoder[strcspn(prof[p_idx].hCoder, "\r\n")] = 0;
            }
            else if(!strcmp(param, "hProfile")) {
-             strlcpy(prof[0].hProfile, val, sizeof(prof[0].hProfile)-1);
-             prof[0].hProfile[strcspn(prof[0].hProfile, "\r\n")] = 0;
+             strlcpy(prof[p_idx].hProfile, val, sizeof(prof[p_idx].hProfile)-1);
+             prof[p_idx].hProfile[strcspn(prof[p_idx].hProfile, "\r\n")] = 0;
            }
            else if(!strcmp(param, "hAsyncDepth")) {
-             strlcpy(prof[0].hAsyncDepth, val, sizeof(prof[0].hAsyncDepth)-1);
-             prof[0].hAsyncDepth[strcspn(prof[0].hAsyncDepth, "\r\n")] = 0;
+             strlcpy(prof[p_idx].hAsyncDepth, val, sizeof(prof[p_idx].hAsyncDepth)-1);
+             prof[p_idx].hAsyncDepth[strcspn(prof[p_idx].hAsyncDepth, "\r\n")] = 0;
            }
            else if(!strcmp(param, "hLevelIdc")) {
-             strlcpy(prof[0].hLevelIdc, val, sizeof(prof[0].hLevelIdc)-1);
-             prof[0].hLevelIdc[strcspn(prof[0].hLevelIdc, "\r\n")] = 0;
+             strlcpy(prof[p_idx].hLevelIdc, val, sizeof(prof[p_idx].hLevelIdc)-1);
+             prof[p_idx].hLevelIdc[strcspn(prof[p_idx].hLevelIdc, "\r\n")] = 0;
            }
          }
       }
@@ -220,10 +256,12 @@ static Bool initH264(rfbClientPtr cl) {
         result = FALSE;
         goto error;
     }
+
+    h264_profile = cl->zlibCompressLevel;
 #ifdef DEBUG
-    rfbLog("Init H264 encoder instance: %dx%d@%d\n", rfbFB.width, rfbFB.height, rfbFB.depth);
+    rfbLog("Init H264 encoder instance with profile %d: %dx%d@%d\n", h264_profile, rfbFB.width, rfbFB.height, rfbFB.depth);
 #endif
-    hwAcc = prof[0].HwAccel;
+    hwAcc = prof[h264_profile].HwAccel;
 
     const char* encoderName = hwAcc ? "h264_vaapi": "libx264";
     const AVCodec* videoCodec = avcodec_find_encoder_by_name(encoderName);
@@ -235,54 +273,54 @@ static Bool initH264(rfbClientPtr cl) {
     }
 
     if(!hwAcc) {
-        av_opt_set(av_context->priv_data, "profile", prof[0].Profile, 0);
-        av_opt_set(av_context->priv_data, "preset", prof[0].Preset, 0);
+        av_opt_set(av_context->priv_data, "profile", prof[h264_profile].Profile, 0);
+        av_opt_set(av_context->priv_data, "preset", prof[h264_profile].Preset, 0);
         av_opt_set(av_context->priv_data, "tune", "zerolatency", 0);
-        av_opt_set(av_context->priv_data, "threads", prof[0].Threads, 0);
+        av_opt_set(av_context->priv_data, "threads", prof[h264_profile].Threads, 0);
 
-        if(prof[0].OpenCL)
+        if(prof[h264_profile].OpenCL)
             av_opt_set(av_context->priv_data, "x264opts", "opencl", 0);
 
 //        av_opt_set(av_context->priv_data, "rc-lookahead", "50", 0);
 
-        if(strcmp(prof[0].Crf, "-1")) {
-            av_opt_set(av_context->priv_data, "crf", prof[0].Crf, 0);
-            av_opt_set(av_context->priv_data, "crf-max", prof[0].CrfMax, 0);
+        if(strcmp(prof[h264_profile].Crf, "-1")) {
+            av_opt_set(av_context->priv_data, "crf", prof[h264_profile].Crf, 0);
+            av_opt_set(av_context->priv_data, "crf-max", prof[h264_profile].CrfMax, 0);
         }
-        if(strcmp(prof[0].Qp, "-1")) {
-            av_opt_set(av_context->priv_data, "qp", prof[0].Qp, 0);
+        if(strcmp(prof[h264_profile].Qp, "-1")) {
+            av_opt_set(av_context->priv_data, "qp", prof[h264_profile].Qp, 0);
         }
-        if(strcmp(prof[0].QpMin, "-1")) {
-            av_opt_set(av_context->priv_data, "qpmin", prof[0].QpMin, 0);
+        if(strcmp(prof[h264_profile].QpMin, "-1")) {
+            av_opt_set(av_context->priv_data, "qpmin", prof[h264_profile].QpMin, 0);
         }
-        if(strcmp(prof[0].QpMax, "-1")) {
-            av_opt_set(av_context->priv_data, "qpmax", prof[0].QpMax, 0);
+        if(strcmp(prof[h264_profile].QpMax, "-1")) {
+            av_opt_set(av_context->priv_data, "qpmax", prof[h264_profile].QpMax, 0);
         }
 
-        if(strcmp(prof[0].aqMode, "-1")) {
-            av_opt_set(av_context->priv_data, "aq-mode", prof[0].aqMode, 0);
-            av_opt_set(av_context->priv_data, "aq-strength", prof[0].aqStrength, 0);
+        if(strcmp(prof[h264_profile].aqMode, "-1")) {
+            av_opt_set(av_context->priv_data, "aq-mode", prof[h264_profile].aqMode, 0);
+            av_opt_set(av_context->priv_data, "aq-strength", prof[h264_profile].aqStrength, 0);
         }
     }
 
-    av_context->bit_rate = prof[0].Bitrate;
+    av_context->bit_rate = prof[h264_profile].Bitrate;
     av_context->width = rfbFB.width;
     av_context->height = rfbFB.height;
     av_context->sample_aspect_ratio = (AVRational){1, 1};
     av_context->pix_fmt = AV_PIX_FMT_YUV420P;
-    av_context->time_base = (AVRational){1, prof[0].Fps};
-    av_context->framerate = (AVRational){prof[0].Fps, 1};
-    av_context->gop_size = prof[0].GopSize;
-    if(prof[0].MaxBFrames != -1)
-        av_context->max_b_frames = prof[0].MaxBFrames;
-    if(prof[0].RefFrames != -1)
-        av_context->refs = prof[0].RefFrames;
+    av_context->time_base = (AVRational){1, prof[h264_profile].Fps};
+    av_context->framerate = (AVRational){prof[h264_profile].Fps, 1};
+    av_context->gop_size = prof[h264_profile].GopSize;
+    if(prof[h264_profile].MaxBFrames != -1)
+        av_context->max_b_frames = prof[h264_profile].MaxBFrames;
+    if(prof[h264_profile].RefFrames != -1)
+        av_context->refs = prof[h264_profile].RefFrames;
 
     if(hwAcc) {
         av_context->pix_fmt = AV_PIX_FMT_VAAPI;
         av_context->get_format = get_vaapi_format;
 
-        ret = av_hwdevice_ctx_create(&hw_device, AV_HWDEVICE_TYPE_VAAPI, prof[0].VAAPIDev, NULL, 0);
+        ret = av_hwdevice_ctx_create(&hw_device, AV_HWDEVICE_TYPE_VAAPI, prof[h264_profile].VAAPIDev, NULL, 0);
         if (ret < 0) {
             rfbLog("Could not open VAAPI device: %s\n", av_err2str(ret));
             result = FALSE;
@@ -326,17 +364,17 @@ static Bool initH264(rfbClientPtr cl) {
             goto error;
         }
 
-        av_opt_set(av_context->priv_data, "rc_mode", prof[0].hRcMode, 0);
-        av_opt_set(av_context->priv_data, "quality", prof[0].hQuality, 0);
-        av_opt_set(av_context->priv_data, "coder", prof[0].hCoder, 0);
-        av_opt_set(av_context->priv_data, "profile", prof[0].hProfile, 0);
-        av_opt_set(av_context->priv_data, "async_depth", prof[0].hAsyncDepth, 0);
-        av_opt_set(av_context->priv_data, "level", prof[0].hLevelIdc, 0);
+        av_opt_set(av_context->priv_data, "rc_mode", prof[h264_profile].hRcMode, 0);
+        av_opt_set(av_context->priv_data, "quality", prof[h264_profile].hQuality, 0);
+        av_opt_set(av_context->priv_data, "coder", prof[h264_profile].hCoder, 0);
+        av_opt_set(av_context->priv_data, "profile", prof[h264_profile].hProfile, 0);
+        av_opt_set(av_context->priv_data, "async_depth", prof[h264_profile].hAsyncDepth, 0);
+        av_opt_set(av_context->priv_data, "level", prof[h264_profile].hLevelIdc, 0);
 //        av_opt_set(av_context->priv_data, "idr_interval", "125", 0);
 //        av_opt_set(av_context->priv_data, "b_depth", "2", 0);
 
-        if(prof[0].GlobalQ != 0)
-            av_context->global_quality = prof[0].GlobalQ;
+        if(prof[h264_profile].GlobalQ != 0)
+            av_context->global_quality = prof[h264_profile].GlobalQ;
         av_buffer_unref(&hw_frames_ref);
     }
 
@@ -398,9 +436,9 @@ Bool rfbSendFrameEncodingH264(rfbClientPtr cl) {
         }
     }
 
-    if(rfbFB.width != iw || rfbFB.height != ih) {
+    if(rfbFB.width != iw || rfbFB.height != ih || h264_profile != cl->zlibCompressLevel) {
 #ifdef DEBUG
-        rfbLog("H264 resize to: %dx%d@%d\n", rfbFB.width, rfbFB.height, rfbFB.depth);
+        rfbLog("H264 encoding profile change/resize to: %dx%d@%d\n", rfbFB.width, rfbFB.height, rfbFB.depth);
 #endif
         rfbH264ContextReset(cl);
         rfbH264Cleanup(cl);
