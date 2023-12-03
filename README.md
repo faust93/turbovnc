@@ -66,6 +66,10 @@ You have to build it yourself or install prebuilt package if your distro has one
 
 #### Client side
 
+UPD: It's recommended to use bwVNC client for better results and compatibility:
+
+https://github.com/faust93/bwVNC
+
 In theory any VNC client with QEMU audio support should work but there are not many of them around so I personally use TigerVNC client patched for QEMU Audio support:
 
 https://github.com/faust93/tigervnc
