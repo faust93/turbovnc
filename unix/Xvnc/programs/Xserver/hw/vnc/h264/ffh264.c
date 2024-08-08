@@ -15,7 +15,7 @@ struct SwsContext *sws_context = NULL;
 
 int iw,ih;
 
-Bool hwAcc = FALSE;
+int hwAcc = 0;
 static int h264_profile = 0;
 char h264conf_path[PATH_MAX];
 
@@ -39,7 +39,7 @@ typedef struct {
       char         aqStrength[8];
       Bool         OpenCL;
 
-      Bool         HwAccel;
+      int          HwAccel;
       char         VAAPIDev[128];
       char         hRcMode[8];
       char         hQuality[8];
@@ -225,6 +225,17 @@ static enum AVPixelFormat get_vaapi_format(AVCodecContext*, const enum AVPixelFo
     return AV_PIX_FMT_NONE;
 }
 
+
+static void bgra_from_bgra(uint8_t *rgb) {
+    const int in_linesize[1] = { 4 * av_context->width };
+    sws_context = sws_getCachedContext(sws_context,
+            av_context->width, av_context->height, AV_PIX_FMT_BGRA,
+            av_context->width, av_context->height, AV_PIX_FMT_BGRA,
+            0, NULL, NULL, NULL);
+    sws_scale(sws_context, (const uint8_t * const *)&rgb, in_linesize, 0,
+            av_context->height, frame->data, frame->linesize);
+}
+
 static void yuv_from_bgra(uint8_t *rgb) {
     const int in_linesize[1] = { 4 * av_context->width };
     sws_context = sws_getCachedContext(sws_context,
@@ -261,9 +272,19 @@ static Bool initH264(rfbClientPtr cl) {
 #ifdef DEBUG
     rfbLog("Init H264 encoder instance with profile %d: %dx%d@%d\n", h264_profile, rfbFB.width, rfbFB.height, rfbFB.depth);
 #endif
+    char* encoderName;
     hwAcc = prof[h264_profile].HwAccel;
-
-    const char* encoderName = hwAcc ? "h264_vaapi": "libx264";
+    switch(hwAcc) {
+        case 2:
+            encoderName = "h264_rkmpp";
+            break;
+        case 1:
+            encoderName = "h264_vaapi";
+            break;
+        case 0:
+            encoderName = "libx264";
+            break;
+    }
     const AVCodec* videoCodec = avcodec_find_encoder_by_name(encoderName);
     av_context = avcodec_alloc_context3(videoCodec);
     if (!av_context) {
@@ -272,7 +293,8 @@ static Bool initH264(rfbClientPtr cl) {
         goto error;
     }
 
-    if(!hwAcc) {
+    //x264
+    if(hwAcc == 0) {
         av_opt_set(av_context->priv_data, "profile", prof[h264_profile].Profile, 0);
         av_opt_set(av_context->priv_data, "preset", prof[h264_profile].Preset, 0);
         av_opt_set(av_context->priv_data, "tune", "zerolatency", 0);
@@ -280,8 +302,6 @@ static Bool initH264(rfbClientPtr cl) {
 
         if(prof[h264_profile].OpenCL)
             av_opt_set(av_context->priv_data, "x264opts", "opencl", 0);
-
-//        av_opt_set(av_context->priv_data, "rc-lookahead", "50", 0);
 
         if(strcmp(prof[h264_profile].Crf, "-1")) {
             av_opt_set(av_context->priv_data, "crf", prof[h264_profile].Crf, 0);
@@ -301,22 +321,54 @@ static Bool initH264(rfbClientPtr cl) {
             av_opt_set(av_context->priv_data, "aq-mode", prof[h264_profile].aqMode, 0);
             av_opt_set(av_context->priv_data, "aq-strength", prof[h264_profile].aqStrength, 0);
         }
+    // rkmpp
+    } else if(hwAcc == 2) {
+
+        av_opt_set(av_context->priv_data, "profile", prof[h264_profile].Profile, 0);
+        av_opt_set(av_context->priv_data, "rc_mode", prof[h264_profile].hRcMode, 0);
+        av_opt_set(av_context->priv_data, "coder", prof[h264_profile].hCoder, 0);
+
+        if(strcmp(prof[h264_profile].Qp, "-1")) {
+            av_opt_set(av_context->priv_data, "qp_init", prof[h264_profile].Qp, 0);
+        }
+        if(strcmp(prof[h264_profile].QpMin, "-1")) {
+            av_opt_set(av_context->priv_data, "qp_min", prof[h264_profile].QpMin, 0);
+            av_opt_set(av_context->priv_data, "qp_min_i", prof[h264_profile].QpMin, 0);
+        }
+        if(strcmp(prof[h264_profile].QpMax, "-1")) {
+            av_opt_set(av_context->priv_data, "qp_max", prof[h264_profile].QpMax, 0);
+            av_opt_set(av_context->priv_data, "qp_max_i", prof[h264_profile].QpMax, 0);
+        }
+
+        av_opt_set(av_context->priv_data, "level", prof[h264_profile].hLevelIdc, 0);
+        av_opt_set_int(av_context->priv_data, "8x8dct", 1, 0);
+
+        av_opt_set(av_context->priv_data, "tune", "zerolatency", 0);
+        av_opt_set(av_context->priv_data, "threads", prof[h264_profile].Threads, 0);
+
+        av_opt_set(av_context->priv_data, "async_depth", prof[h264_profile].hAsyncDepth, 0);
+
+        av_context->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
     }
 
     av_context->bit_rate = prof[h264_profile].Bitrate;
     av_context->width = rfbFB.width;
     av_context->height = rfbFB.height;
     av_context->sample_aspect_ratio = (AVRational){1, 1};
-    av_context->pix_fmt = AV_PIX_FMT_YUV420P;
+    if(hwAcc == 2)
+        av_context->pix_fmt = AV_PIX_FMT_BGRA;
+    else
+        av_context->pix_fmt = AV_PIX_FMT_YUV420P;
     av_context->time_base = (AVRational){1, prof[h264_profile].Fps};
     av_context->framerate = (AVRational){prof[h264_profile].Fps, 1};
     av_context->gop_size = prof[h264_profile].GopSize;
+
     if(prof[h264_profile].MaxBFrames != -1)
         av_context->max_b_frames = prof[h264_profile].MaxBFrames;
     if(prof[h264_profile].RefFrames != -1)
         av_context->refs = prof[h264_profile].RefFrames;
 
-    if(hwAcc) {
+    if(hwAcc == 1) {
         av_context->pix_fmt = AV_PIX_FMT_VAAPI;
         av_context->get_format = get_vaapi_format;
 
@@ -381,7 +433,6 @@ static Bool initH264(rfbClientPtr cl) {
     iw = rfbFB.width;
     ih = rfbFB.height;
 
-
     ret = avcodec_open2(av_context, videoCodec, NULL);
     if (ret < 0) {
         rfbLog("Could not open video codec: %s\n", av_err2str(ret));
@@ -396,7 +447,7 @@ static Bool initH264(rfbClientPtr cl) {
         goto error;
     }
 
-    if(!hwAcc) {
+    if(hwAcc == 0 || hwAcc == 2) {
         frame->format = av_context->pix_fmt;
         frame->width  = av_context->width;
         frame->height = av_context->height;
@@ -445,12 +496,15 @@ Bool rfbSendFrameEncodingH264(rfbClientPtr cl) {
         return 1;
     }
 
-    if(hwAcc) {
+    if(hwAcc == 1) {
         hwFrame = av_frame_alloc();
         av_hwframe_get_buffer(av_context->hw_frames_ctx, hwFrame, 0);
         hw_from_bgra((u_char*)rfbFB.pfbMemory);
         av_hwframe_transfer_data(hwFrame, frame, 0);
         ret = avcodec_send_frame(av_context, hwFrame);
+    } else if(hwAcc == 2) {
+        bgra_from_bgra((u_char*)rfbFB.pfbMemory);
+        ret = avcodec_send_frame(av_context, frame);
     } else {
         yuv_from_bgra((u_char*)rfbFB.pfbMemory);
         ret = avcodec_send_frame(av_context, frame);
@@ -458,7 +512,7 @@ Bool rfbSendFrameEncodingH264(rfbClientPtr cl) {
     if (ret < 0) {
         rfbLog("Fail to avcodec_send_frame ! error: %s\n", av_err2str(ret));
         result = FALSE;
-        if(hwAcc)
+        if(hwAcc == 1)
             av_frame_free(&hwFrame);
         goto error;
     }
@@ -482,7 +536,7 @@ Bool rfbSendFrameEncodingH264(rfbClientPtr cl) {
         }
         av_packet_free(&pkt);
     }
-    if(hwAcc)
+    if(hwAcc == 1)
         av_frame_free(&hwFrame);
 error:
     return result;
@@ -494,7 +548,7 @@ void rfbH264Cleanup(rfbClientPtr cl) {
 #endif
     if (av_context) {
         av_frame_free(&frame);
-        if(hwAcc) {
+        if(hwAcc == 1) {
             av_frame_free(&hwFrame);
             av_buffer_unref(&hw_device);
         }

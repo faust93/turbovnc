@@ -10,8 +10,11 @@ https://github.com/TigerVNC/tigervnc/pull/1194/commits/03df44849617122fba9b52100
 Two H264 encoder implementations are available:
 
 - Cisco OpenH264, software only encoding
-- FFMpeg libvacodec, software (x264) and hardware encoding (GPU h264 encoding profile support required)
+- FFMpeg libvacodec, software (x264) and hardware encoding: h264 VAAPI (GPU h264 encoding profile support required), h264_rkmpp (Rockchip MPP)
 
+**Attention**
+
+> For h264_rkmpp to work a 3rd party FFMpeg compiled with Rockchip MPP support required - https://github.com/nyanmisaka/ffmpeg-rockchip
 
 ## Building
 
@@ -29,9 +32,9 @@ $ cmake --build .
 To run:
 
 ```sh
-$ cp ../unix/Xvnc/programs/Xserver/hw/vnc/h264/h264.cfg /tmp
+$ cp ../unix/Xvnc/programs/Xserver/hw/vnc/h264/ffh264.cfg /tmp
 $ ./bin/vncpasswd .vncpass
-$ ./bin/Xvnc :1 -depth 32 -geometry 1680x1024 -rfbport 5901 +iglx -rfbauth .vncpass -deferupdate 1 -h264conf /tmp/h264.cfg &
+$ ./bin/Xvnc :1 -depth 32 -geometry 1680x1024 -rfbport 5901 +iglx -rfbauth .vncpass -deferupdate 1 -h264conf /tmp/ffh264.cfg &
 $ DISPLAY=:1 startxfce4
 ```
 
@@ -39,7 +42,7 @@ Then connect to the server using TigerVNC viewer
 
 **You have to build TigerVNC viewer manually** since H264 decoding is not included in the binary distros
 
-H264 parameters can be tuned according to your needs/preferences, see `h264.cfg` file
+H264 parameters can be tuned according to your needs/preferences, see `h264.cfg` for OpenH264 and `ffh264.cfg` for FFMpeg encoders
 
 ## Audio support
 
